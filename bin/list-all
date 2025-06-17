@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+
+# Fetch all versions from the npm registry as a JSON array,
+# then use jq to format them into a space-separated list.
+# We sort them using `sort -V` for proper version sorting.
+npm view @anthropic-ai/claude-code versions --json | jq -r '.[]' | sort -V

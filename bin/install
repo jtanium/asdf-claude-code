@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+# ASDF provides these environment variables.
+# $ASDF_INSTALL_TYPE will be 'version'
+# $ASDF_INSTALL_VERSION is the version string (e.g., "0.1.5")
+# $ASDF_INSTALL_PATH is the directory where we should install (e.g., ~/.asdf/installs/claude-code/0.1.5)
+
+# 1. Check for dependencies. `npm` must be available.
+#    asdf will ensure this if `nodejs` is in .tool-versions.
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm not found. Please install a version of Node.js with asdf first."
+  echo "Example: asdf install nodejs latest && asdf global nodejs latest"
+  exit 1
+fi
+
+# 2. Install the package using npm into the correct path.
+#    We use --prefix to control the installation directory.
+echo "Installing @anthropic-ai/claude-code@${ASDF_INSTALL_VERSION}..."
+
+npm install --prefix "${ASDF_INSTALL_PATH}" "@anthropic-ai/claude-code@${ASDF_INSTALL_VERSION}"
+
+echo "Installation complete."
