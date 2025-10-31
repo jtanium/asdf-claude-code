@@ -90,8 +90,11 @@ This creates a `.tool-versions` file in your current directory.
 
 ```bash
 which claude-code
+which claude
 claude-code --version
 ```
+
+Both `claude-code` and `claude` commands should work (they point to the same installation).
 
 **If you get "command not found"**, run:
 
@@ -99,7 +102,7 @@ claude-code --version
 asdf reshim claude-code
 ```
 
-This refreshes ASDF's shims and should make the command available.
+This refreshes ASDF's shims and should make both commands available.
 
 ## Usage Examples
 
@@ -194,10 +197,11 @@ asdf plugin add claude-code https://github.com/jtanium/asdf-claude-code.git
 
 Now that you have Claude Code installed via ASDF, you can:
 
-1. Use `claude-code` command in your terminal
+1. Use `claude-code` or `claude` command in your terminal
 2. Create project-specific versions with `.tool-versions`
 3. Share your setup with teammates (they just need the `.tool-versions` file)
 4. Easily update or rollback versions as needed
+5. Use the `claude` command with IDE plugins (like IntelliJ) that require it
 
 Happy coding with Claude! 🚀
 

@@ -108,6 +108,9 @@ EOF
     rm -f "${bin_install}/claude-code.bak"
     chmod +x "${bin_install}/claude-code"
 
+    # Create 'claude' symlink for compatibility with IntelliJ plugin
+    (cd "${bin_install}" && ln -sf claude-code claude)
+
     echo "✓ claude-code ${version} installed successfully!"
     echo ""
     echo "To use this version, run:"

@@ -82,11 +82,15 @@ asdf local claude-code 0.1.0
 
 ### Use the CLI
 
-Once installed and configured, you can use the `claude-code` command:
+Once installed and configured, you can use either the `claude-code` or `claude` command:
 
 ```bash
 claude-code --help
 claude-code --version
+
+# or use the 'claude' alias (useful for IntelliJ plugin compatibility)
+claude --help
+claude --version
 ```
 
 ## How It Works
@@ -96,7 +100,8 @@ This plugin:
 1. **Automatically integrates with ASDF-managed Node.js/npm** - If you have Node.js installed via ASDF, the plugin will use it automatically
 2. **Downloads the official package** - Installs `@anthropic-ai/claude-code` from npm
 3. **Creates isolated installations** - Each version is installed in its own directory under `~/.asdf/installs/claude-code/`
-4. **Provides a wrapper script** - Creates a `claude-code` executable that properly sets up the Node.js environment
+4. **Provides wrapper scripts** - Creates both `claude-code` and `claude` executables that properly set up the Node.js environment
+5. **IntelliJ plugin compatibility** - The `claude` symlink ensures compatibility with IDE plugins that expect the shorter command name
 
 ## Configuration
 
@@ -141,6 +146,9 @@ This recreates the shim that points to the installed executable. You may need to
 ```bash
 which claude-code
 # Should show: /Users/[your-username]/.asdf/shims/claude-code
+
+which claude
+# Should show: /Users/[your-username]/.asdf/shims/claude
 
 claude-code --version
 # Should show: [version number] (Claude Code)
