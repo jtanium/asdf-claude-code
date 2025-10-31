@@ -1,23 +1,130 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env bash
 
-# ASDF provides these environment variables.
-# $ASDF_INSTALL_TYPE will be 'version'
-# $ASDF_INSTALL_VERSION is the version string (e.g., "0.1.5")
-# $ASDF_INSTALL_PATH is the directory where we should install (e.g., ~/.asdf/installs/claude-code/0.1.5)
+set -euo pipefail
 
-# 1. Check for dependencies. `npm` must be available.
-#    asdf will ensure this if `nodejs` is in .tool-versions.
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm not found. Please install a version of Node.js with asdf first."
-  echo "Example: asdf install nodejs latest && asdf global nodejs latest"
+fail() {
+  echo -e "\e[31mFailed: $*\e[39m" >&2
   exit 1
-fi
+}
 
-# 2. Install the package using npm into the correct path.
-#    We use --prefix to control the installation directory.
-echo "Installing @anthropic-ai/claude-code@${ASDF_INSTALL_VERSION}..."
+ensure_node_npm() {
+  # Try to use ASDF-managed Node.js/npm if available
+  if command -v asdf >/dev/null 2>&1; then
+    # Check if nodejs plugin is installed
+    if asdf plugin list | grep -q nodejs; then
+      # Reshim to ensure node and npm are in PATH
+      asdf reshim nodejs 2>/dev/null || true
+    else
+      echo "Notice: nodejs plugin not found in ASDF. Install it with:" >&2
+      echo "  asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git" >&2
+      echo "  asdf install nodejs latest" >&2
+      echo "  asdf global nodejs latest" >&2
+    fi
+  fi
 
-npm install --prefix "${ASDF_INSTALL_PATH}" "@anthropic-ai/claude-code@${ASDF_INSTALL_VERSION}"
+  # Check if Node.js is available
+  if ! command -v node >/dev/null 2>&1; then
+    fail "Node.js is required but not found. Please install Node.js first."
+  fi
 
-echo "Installation complete."
+  # Check if npm is available
+  if ! command -v npm >/dev/null 2>&1; then
+    fail "npm is required but not found. Please install npm first."
+  fi
+}
+
+install_claude_code() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-claude-code supports release installs only"
+  fi
+
+  ensure_node_npm
+
+  local bin_install="${install_path}/bin"
+
+  echo "Installing claude-code version ${version}..."
+
+  # Create bin directory
+  mkdir -p "${bin_install}"
+
+  # Install using npm to a temporary location
+  local temp_dir
+  temp_dir=$(mktemp -d)
+
+  cd "$temp_dir"
+  echo "Downloading @anthropic-ai/claude-code@${version}..."
+  npm install --global-style --no-save --prefix . "@anthropic-ai/claude-code@${version}" || fail "Failed to install claude-code ${version}"
+
+  # Copy installed files to install path
+  if [ -d "node_modules/@anthropic-ai/claude-code" ]; then
+    echo "Copying files to ${install_path}..."
+    cp -r node_modules "${install_path}/"
+
+    # Find the actual entry point - check for cli.js first (this is what 2.0.30 uses)
+    local entry_point
+    if [ -f "${install_path}/node_modules/@anthropic-ai/claude-code/cli.js" ]; then
+      entry_point="${install_path}/node_modules/@anthropic-ai/claude-code/cli.js"
+    elif [ -f "${install_path}/node_modules/@anthropic-ai/claude-code/bin/claude-code.js" ]; then
+      entry_point="${install_path}/node_modules/@anthropic-ai/claude-code/bin/claude-code.js"
+    elif [ -f "${install_path}/node_modules/@anthropic-ai/claude-code/dist/cli.js" ]; then
+      entry_point="${install_path}/node_modules/@anthropic-ai/claude-code/dist/cli.js"
+    elif [ -f "${install_path}/node_modules/@anthropic-ai/claude-code/index.js" ]; then
+      entry_point="${install_path}/node_modules/@anthropic-ai/claude-code/index.js"
+    else
+      # Try to get from package.json
+      local pkg_json="${install_path}/node_modules/@anthropic-ai/claude-code/package.json"
+      if [ -f "$pkg_json" ]; then
+        local bin_field
+        bin_field=$(grep -o '"bin"[^}]*' "$pkg_json" | head -1 || echo "")
+        if [ -n "$bin_field" ]; then
+          # Extract the path from bin field
+          entry_point=$(echo "$bin_field" | grep -o '"[^"]*"' | tail -1 | tr -d '"')
+          if [ -n "$entry_point" ]; then
+            entry_point="${install_path}/node_modules/@anthropic-ai/claude-code/${entry_point}"
+          fi
+        fi
+      fi
+    fi
+
+    if [ -z "$entry_point" ] || [ ! -f "$entry_point" ]; then
+      # Default fallback
+      entry_point="${install_path}/node_modules/@anthropic-ai/claude-code/cli.js"
+    fi
+
+    # Create wrapper script
+    cat > "${bin_install}/claude-code" <<'EOF'
+#!/usr/bin/env bash
+# ASDF-managed claude-code wrapper
+export NODE_PATH="INSTALL_PATH/node_modules"
+exec node "ENTRY_POINT" "$@"
+EOF
+    # Replace placeholders
+    sed -i.bak "s|INSTALL_PATH|${install_path}|g" "${bin_install}/claude-code"
+    sed -i.bak "s|ENTRY_POINT|${entry_point}|g" "${bin_install}/claude-code"
+    rm -f "${bin_install}/claude-code.bak"
+    chmod +x "${bin_install}/claude-code"
+
+    echo "✓ claude-code ${version} installed successfully!"
+    echo ""
+    echo "To use this version, run:"
+    echo "  asdf global claude-code ${version}"
+    echo "  or"
+    echo "  asdf local claude-code ${version}"
+
+    # Clean up temp directory
+    cd /
+    rm -rf "$temp_dir"
+  else
+    # Clean up temp directory
+    cd /
+    rm -rf "$temp_dir"
+    fail "Installation directory not found"
+  fi
+}
+
+install_claude_code "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+
